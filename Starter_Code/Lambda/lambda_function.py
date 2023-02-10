@@ -125,6 +125,86 @@ def recommend_portfolio(intent_request):
     source = intent_request["invocationSource"]
 
     # YOUR CODE GOES HERE!
+# validates slots with DialogCodeHook event
+    if source == 'DialogCodeHook':
+        all_slots = get_slots(intent_request)
+
+       # validate inputs 'age' and 'investment_amount' collected from bot 
+        validation_result = validate_inputs(age, investment_amount)
+
+        if not validation_result['isValid']:
+            all_slots[validation_result["violatedSlot"]] = None
+
+            # returns if inputs don't match constraints request new info/data
+            return elicit_slot(
+                intent_request["sessionAttributes"],
+                intent_request["currentIntent"]["name"],
+                all_slots,
+                validation_result["violatedSlot"],
+                validation_result["message"]
+            )
+
+        # retrieve current 'session attributes'
+        session_attributes = intent_request["sessionAttributes"]
+
+        # delegate dialog is fulfilled when all slots are valid.
+        return delegate(session_attributes, all_slots)
+
+    # ready to provide portfolio recommendation
+    portfolio_recommendation = get_recommendation(risk_level)
+
+    # final return message with recommended portfolio percentages
+    return close(
+        intent_request["sessionAttributes"],
+        "Fulfilled",
+        {
+            "contentType": "PlainText",
+            "content": f"The recommended portfolio for you based on your risk level is: {portfolio_recommendation}"
+        },
+    )
+
+### gives advice based on the users choice of 'risk_level' ###
+def get_recommendation(risk_level):
+    """Returns percentage split for bonds and equities based on users' agressiveness"""
+
+    if risk_level == 'None':
+        return '100% bonds (AGG), 0% equities (SPY).'
+    elif risk_level == 'Low':
+        return '60% bonds (AGG), 40% equities (SPY).'
+    elif risk_level == 'Medium':
+        return '40% bonds (AGG), 60% equities (SPY).'
+    elif risk_level == 'High':
+        return '20% bonds (AGG), 80% equities (SPY).'
+    else:
+        return '100% bonds (AGG), 0% equities (SPY) - (default portfolio recommended, Invalid risk-level).'
+
+### validates age and investment amount ###
+def validate_inputs(age, investment_amount):
+    """ This line of code makes sure age is valid so you don't try and change NaN to float """
+    if age is not None:
+        age = float(age)
+
+        """ This line of code tells user they need to submit a valid age (age constraint) """
+        if age <= 0 or age >= 65:
+            return build_validation_result(
+                False,
+                'age',
+                'The age you entered is invalid. Please enter an age between 0 and 65.'
+            )
+
+    """ Checks to make sure investment amount is valid so you don't try and change NaN to float """
+    if investment_amount is not None:
+        investment_amount = float(investment_amount)
+
+        """ Checks against constraint (investment constraint) """
+        if investment_amount < 5000:
+            return build_validation_result(
+                False,
+                'investmentAmount',
+                'The investment amount entered is invalid. Please enter an amount greater than or equal to $5000.'
+            )
+
+    return build_validation_result(True, None, None)
 
 
 ### Intents Dispatcher ###
